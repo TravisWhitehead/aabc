@@ -19,7 +19,7 @@ If you find that the usage instructions below are unclear or inaccurate, please 
     - A pop-up may appear on your device asking you to allow the connection. Allow it.
 
 ### Running aabc
-Review the usage information for aabc by running `aabc -h`.
+
 
 Specify the devices you want to check by passing their serials (from step 3 above) to aabc:
 ```sh
@@ -45,4 +45,27 @@ To filter out system apps that you might not care about checking, pass `-3` to l
 apps only:
 ```sh
 aabc -3 FOOBAR1234
+```
+
+See an overview of available options and usage information:
+```sh
+$ aabc -h
+
+usage: aabc [-h] [-3] [-a | -m] device_serial [device_serial ...]
+
+Output list of Android apps installed on devices that use Android App Bundles
+(default) or are monolithic.
+
+positional arguments:
+  device_serial         Serial(s) of device(s) to check (from "adb devices"
+                        output)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -3, --third-party-apps-only
+                        Only check if third-party apps use Android App Bundles
+  -a, --output-aab      Output list of packages that use Android App Bundles
+  -m, --output-monolithic
+                        Output list of packages that are monolithic (not using
+                        Android App Bundles)
 ```
