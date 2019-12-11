@@ -5,10 +5,15 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="aabc",
-    version="0.1.0",
+    version="0.1.2",
     author="Travis Whitehead",
     author_email="TravisWhitehead@protonmail.com",
     description="Tool that uses adb to check whether Android apps on a device are built using Android App Bundles",
+    entry_points={
+        'console_scripts': [
+            'aabc = aabc.aabc:main'
+        ]
+    },
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/traviswhitehead/aabc",
