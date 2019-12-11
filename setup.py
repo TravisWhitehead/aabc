@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="aabc-traviswhitehead", # Replace with your own username
+    name="aabc",
     version="0.1.0",
     author="Travis Whitehead",
     author_email="TravisWhitehead@protonmail.com",
