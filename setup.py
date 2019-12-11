@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.1.2",
     author="Travis Whitehead",
     author_email="TravisWhitehead@protonmail.com",
-    description="Tool that uses adb to check whether Android apps on a device are built using Android App Bundles",
+    description="Tool that uses adb to check if apps on a device are built Android App Bundles",
     entry_points={
         'console_scripts': [
             'aabc = aabc.aabc:main'

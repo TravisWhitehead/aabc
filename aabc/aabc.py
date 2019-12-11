@@ -24,6 +24,7 @@ def app_uses_aab(device_serial, app):
 
     return len(paths) > 1
 
+
 def check_adb_installed():
     """Exit with error if adb is not in PATH."""
 
