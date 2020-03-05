@@ -1,128 +1,172 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+'''
+aabc
+Copyleft (C) 2020 TravisWhitehead
+
+aabc heavily uses code from gplaycli https://github.com/matlink/gplaycli
+Copyleft (C) 2015 Matlink
+
+gplaycli is hardly based on GooglePlayDownloader https://framagit.org/tuxicoman/googleplaydownloader
+Copyright (C) 2013 Tuxicoman
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+'''
 
 import argparse
-import shutil
-import subprocess
+import configparser
+import enum
+# import json
+import logging
+import os
 import sys
 
+from gpapi.googleplay import GooglePlayAPI, LoginError, RequestError
 
-def app_uses_aab(device_serial, app):
-    """Return whether app uses Android App Bundles."""
+from . import hooks
 
-    if not app:
-        error('Cannot call app_uses_aab() with empty app argument.', 5)
+try:
+    import keyring
+    HAVE_KEYRING = True
+except ImportError:
+    HAVE_KEYRING = False
 
-    command = ['pm', 'path', app]
-    output = run_command_on_device(device_serial, command).stdout.decode('utf-8')
-    paths = output.splitlines()
+# TODO
+logger  = logging.getLogger(__name__)  # default level is WARNING
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
+logger.addHandler(handler)
+logger.propagate = False
 
-    # Check that these are APK paths just in case
-    for path in paths:
-        if not path.endswith('.apk'):
-            print(output)
-            error('pm returned something other than path(s) to APK(s). See output above.', 4)
+class ERRORS(enum.IntEnum):
+	"""
+	Contains constant errors
+	"""
+	SUCCESS = 0
+	KEYRING_NOT_INSTALLED = 10
+	CANNOT_LOGIN_GPLAY = 15
 
-    return len(paths) > 1
+# try:
+#     __version__ = '%s [Python%s] ' % (get_distribution('gplaycli').version, sys.version.split()[0])
+# except DistributionNotFound:
+#     __version__ = 'unknown: gplaycli not installed (version in setup.py)'
 
+class aabchecker:
+    def __init__(self, args=None, config_file=None):
+        if config_file is None:
+            config_file_paths = [
+                'aabc.conf',
+                os.path.expanduser('~') + '/.config/aabc/aabc.conf',
+                '/etc/aabc/aabc.conf'
+            ]
+            for path in config_file_paths:
+                if os.path.isfile(path):
+                    config_file = path
+                    break
+            if config_file is None:
+                logger.warn('No configuration files found at %s, using default values')
 
-def check_adb_installed():
-    """Exit with error if adb is not in PATH."""
+        self.gpapi = None
 
-    if shutil.which('adb') is None:
-        error('adb not found. adb must be installed and in your PATH. adb is available in '
-              'Android SDK Platform-Tools. See '
-              'https://developer.android.com/studio/releases/platform-tools', 3)
+        config = configparser.ConfigParser()
+        if config_file:
+            config.read(config_file)
 
+        self.gmail_address   = config.get('Credentials', 'gmail_address', fallback=None)
+        self.gmail_password  = config.get('Credentials', 'gmail_password', fallback=None)
+        self.keyring_service = config.get('Credentials', 'keyring_service', fallback=None)
 
-def error(message, exit_status):
-    """Print message to stderr and exit with exit_status."""
+        self.device_codename = config.get('Device', 'codename', fallback='bacon')
 
-    print(message, file=sys.stderr)
-    sys.exit(exit_status)
+        self.locale   = config.get('Locale', 'locale', fallback='en_US')
+        self.timezone = config.get('Locale', 'timezone', fallback='UTC')
 
+        if not args: return
 
-def get_app_list(device_serial, third_party_apps_only=False):
-    """Return list of app names that are installed on a device."""
+        if args.verbose is not None:
+            self.verbose = args.verbose
 
-    command = ['pm', 'list', 'packages']
-    if third_party_apps_only:
-        command.append('-3')
+        if self.verbose:
+            logger.setLevel(logging.INFO)
+        # TODO
+        # logger.info('aabc version %s', __version__)
+        logger.info('Configuration file is %s', config_file)
 
-    output = run_command_on_device(device_serial, command)
-    apps = output.stdout.decode('utf-8').splitlines()
-    apps = map(lambda line: line.replace('package:', ''), apps)
+        if args.device_codename is not None:
+            self.device_codename = args.device_codename
 
-    return apps
+    # TODO: Support multiple apps to check with BulkDetails
+    @hooks.connected
+    def app_uses_aab(self, app):
+        '''Return whether app uses Android App Bundles.'''
 
+        try:
+            detail = self.gpapi.details(app)
+            print(detail['details']['appDetails']['file'])
+        except RequestError as request_error:
+            logger.error('Failed to get details.')
+            logger.error(request_error)
+            # TODO
 
-def get_app_types(device_serial, apps):
-    """Return list of pairs of app names and whether they use Android App Bundles."""
+    def connect(self):
+        '''
+        Connect aabc to the Google Play API. Credentials might be stored into
+        the keyring if the keyring package is installed.
+        '''
+        self.gpapi = GooglePlayAPI(locale=self.locale, timezone=self.timezone, device_codename=self.device_codename)
+        ok, err = self.connect_credentials()
+        if ok:
+            self.token = self.gpapi.authSubToken
+            self.gsfid = self.gpapi.gsfId
+        return ok, err
 
-    app_types = []
-    for app in apps:
-        app_types.append((app, app_uses_aab(device_serial, app)))
-
-    return app_types
-
-
-def parse_arguments():
-    """Returns parsed CLI arguments"""
-
-    parser = argparse.ArgumentParser(
-        description='Output list of Android apps installed on devices that use Android App '
-        'Bundles (default) or are monolithic.')
-
-    parser.add_argument(
-        'device_serial', nargs='+', help='Serial(s) of device(s) to check (from "adb devices" '
-        'output)')
-
-    parser.add_argument(
-        '-3', '--third-party-apps-only', action='store_true', help='Only check if third-party '
-        'apps use Android App Bundles')
-
-    exclusive = parser.add_mutually_exclusive_group()
-    exclusive.add_argument(
-        '-a', '--output-aab', action='store_const', dest='output_type', const='aab',
-        default='aab', help='Output list of packages that use Android App Bundles')
-
-    exclusive.add_argument(
-        '-m', '--output-monolithic', action='store_const', dest='output_type', const='monolithic',
-        help='Output list of packages that are monolithic (not using Android App Bundles)')
-
-    return parser.parse_args()
-
-
-def run_command_on_device(device_serial, command):
-    """Run shell command on device."""
-
-    try:
-        output = subprocess.run(['adb', '-s', device_serial, 'shell'] + command,
-                                capture_output=True, check=True)
-
-    except subprocess.CalledProcessError as e:
-        sys.stderr.write(e.stderr.decode('utf-8'))
-        sys.exit(e.returncode)
-
-    return output
-
+    def connect_credentials(self):
+        logger.info('Using credentials to connect to API')
+        if self.gmail_password:
+            logger.info('Using plaintext password')
+            password = self.gmail_password
+        elif self.keyring_service and HAVE_KEYRING:
+            password = keyring.get_password(self.keyring_service, self.gmail_address)
+        elif self.keyring_service and not HAVE_KEYRING:
+            logger.error('You asked for keyring service but keyring package is not installed')
+            return False, ERRORS.KEYRING_NOT_INSTALLED
+        else:
+            logger.error('No password found. Check your configuration file.')
+            return False, ERRORS.CANNOT_LOGIN_GPLAY
+        try:
+            self.gpapi.login(email=self.gmail_address, password=password)
+        except LoginError as e:
+            logger.error('Bad authentication, login or password incorrect (%s)', e)
+            return False, ERRORS.CANNOT_LOGIN_GPLAY
+        return True, None
 
 def main():
-    args = parse_arguments()
+    parser = argparse.ArgumentParser(description='A tool for checking if apps on the Google Play Store use Android App Bundles')
+    parser.add_argument('apps', nargs='*', help='Apps to check if using Android App Bundles')
+    parser.add_argument('-C', '--config', help='Use a different config file than gplaycli.conf', metavar='CONF_FILE', nargs=1)
+    parser.add_argument('-dc', '--device-codename', help='The device codename to fake', choices=GooglePlayAPI.getDevicesCodenames(), metavar='DEVICE_CODENAME')
+    parser.add_argument('-v', '--verbose', help='Be verbose', action='store_true')
+    parser.add_argument('-V', '--version', help='Print version and exit', action='store_true')
 
-    check_adb_installed()
+    args = parser.parse_args()
 
-    for device in args.device_serial:
-        apps = get_app_list(device, args.third_party_apps_only)
-        app_types = get_app_types(device, apps)
+    if args.version:
+        # TODO
+        # print(__version__)
+        return
 
-        for app, app_type in app_types:
-            if args.output_type == 'aab' and app_type:
-                print(app)
-            if args.output_type == 'monolithic' and not app_type:
-                print(app)
+    checker = aabchecker(args, args.config)
 
-    sys.exit(0)
-
-
-if __name__ == '__main__':
-    main()
+    if args.apps is not None:
+        checker.app_uses_aab(args.apps[0])
