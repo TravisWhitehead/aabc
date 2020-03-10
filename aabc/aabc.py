@@ -27,9 +27,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import argparse
 import configparser
 import enum
-# import json
 import logging
 import os
+import pprint
 import sys
 
 from gpapi.googleplay import GooglePlayAPI, LoginError, RequestError
@@ -43,7 +43,7 @@ try:
 except ImportError:
     HAVE_KEYRING = False
 
-# TODO
+# Set up logger that prints logging level per message
 logger  = logging.getLogger(__name__)  # default level is WARNING
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
@@ -108,16 +108,28 @@ class aabchecker:
 
     # TODO: Support multiple apps to check with BulkDetails
     @hooks.connected
-    def app_uses_aab(self, app):
-        '''Return whether app uses Android App Bundles.'''
+    def check_aab(self, app):
+        '''
+        Return whether app uses Android App Bundles.
+
+        Queries Google Play Store for details about app and checks the file
+        list; reports that Android App Bundles are used when more than one
+        file is listed.
+        '''
 
         try:
-            detail = self.gpapi.details(app)
-            print(detail['details']['appDetails']['file'])
+            details = self.gpapi.details(app)
+            files = details['details']['appDetails']['file']
+            num_files = len(files)
+
+            if self.verbose:
+                files_list = pprint.pformat(files)
+                logger.info(str(num_files) + ' files found for ' + details['docid'] + ':\n' + files_list)
+
+            return num_files > 1
         except RequestError as request_error:
-            logger.error('Failed to get details.')
+            logger.error('Failed to get details for app.')
             logger.error(request_error)
-            # TODO
 
     def connect(self):
         '''
@@ -168,4 +180,4 @@ def main():
     checker = aabchecker(args, args.config)
 
     if args.apps is not None:
-        checker.app_uses_aab(args.apps[0])
+        print(checker.check_aab(args.apps[0]))
