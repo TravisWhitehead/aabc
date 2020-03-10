@@ -33,6 +33,7 @@ import os
 import sys
 
 from gpapi.googleplay import GooglePlayAPI, LoginError, RequestError
+from pkg_resources import get_distribution, DistributionNotFound
 
 from . import hooks
 
@@ -57,10 +58,10 @@ class ERRORS(enum.IntEnum):
 	KEYRING_NOT_INSTALLED = 10
 	CANNOT_LOGIN_GPLAY = 15
 
-# try:
-#     __version__ = '%s [Python%s] ' % (get_distribution('gplaycli').version, sys.version.split()[0])
-# except DistributionNotFound:
-#     __version__ = 'unknown: gplaycli not installed (version in setup.py)'
+try:
+    __version__ = '%s [Python%s] ' % (get_distribution('aabc').version, sys.version.split()[0])
+except DistributionNotFound:
+    __version__ = 'unknown: aabc not installed (version in setup.py)'
 
 class aabchecker:
     def __init__(self, args=None, config_file=None):
@@ -99,8 +100,7 @@ class aabchecker:
 
         if self.verbose:
             logger.setLevel(logging.INFO)
-        # TODO
-        # logger.info('aabc version %s', __version__)
+        logger.info('aabc version %s', __version__)
         logger.info('Configuration file is %s', config_file)
 
         if args.device_codename is not None:
@@ -162,8 +162,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        # TODO
-        # print(__version__)
+        print(__version__)
         return
 
     checker = aabchecker(args, args.config)
