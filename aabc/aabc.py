@@ -36,6 +36,7 @@ from gpapi.googleplay import GooglePlayAPI, LoginError, RequestError
 from pkg_resources import get_distribution, DistributionNotFound
 
 from . import hooks
+from .reporters.csv import CSVReporter
 
 try:
     import keyring
@@ -98,6 +99,9 @@ class aabchecker:
 
         if not args:
             return
+
+        if args.report_file is not None:
+            self.reporter = CSVReporter(args.report_file)
 
         if args.verbose is not None:
             self.verbose = args.verbose
@@ -178,6 +182,7 @@ def main():
                         metavar='CONF_FILE', nargs=1)
     parser.add_argument('-dc', '--device-codename', help='The device codename to fake',
                         choices=GooglePlayAPI.getDevicesCodenames(), metavar='DEVICE_CODENAME')
+    parser.add_argument('-r', '--report-file', help='The file to write the report to')
     parser.add_argument('-v', '--verbose', help='Be verbose', action='store_true')
     parser.add_argument('-V', '--version', help='Print version and exit', action='store_true')
 
@@ -187,7 +192,10 @@ def main():
         print(__version__)
         return
 
+    if len(args.apps) == 0:
+        logger.error('Must specify at least one app to check.')
+        return 1
+
     checker = aabchecker(args, args.config)
 
-    if args.apps is not None:
-        print(checker.check_aab(args.apps[0]))
+    checker.reporter.report_app(args.apps[0], checker.check_aab(args.apps[0]))
