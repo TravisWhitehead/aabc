@@ -44,24 +44,27 @@ except ImportError:
     HAVE_KEYRING = False
 
 # Set up logger that prints logging level per message
-logger  = logging.getLogger(__name__)  # default level is WARNING
+logger = logging.getLogger(__name__)  # default level is WARNING
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
 logger.addHandler(handler)
 logger.propagate = False
 
+
 class ERRORS(enum.IntEnum):
-	"""
-	Contains constant errors
-	"""
-	SUCCESS = 0
-	KEYRING_NOT_INSTALLED = 10
-	CANNOT_LOGIN_GPLAY = 15
+    """
+    Contains constant errors
+    """
+    SUCCESS = 0
+    KEYRING_NOT_INSTALLED = 10
+    CANNOT_LOGIN_GPLAY = 15
+
 
 try:
     __version__ = '%s [Python%s] ' % (get_distribution('aabc').version, sys.version.split()[0])
 except DistributionNotFound:
     __version__ = 'unknown: aabc not installed (version in setup.py)'
+
 
 class aabchecker:
     def __init__(self, args=None, config_file=None):
@@ -84,16 +87,17 @@ class aabchecker:
         if config_file:
             config.read(config_file)
 
-        self.gmail_address   = config.get('Credentials', 'gmail_address', fallback=None)
-        self.gmail_password  = config.get('Credentials', 'gmail_password', fallback=None)
+        self.gmail_address = config.get('Credentials', 'gmail_address', fallback=None)
+        self.gmail_password = config.get('Credentials', 'gmail_password', fallback=None)
         self.keyring_service = config.get('Credentials', 'keyring_service', fallback=None)
 
         self.device_codename = config.get('Device', 'codename', fallback='bacon')
 
-        self.locale   = config.get('Locale', 'locale', fallback='en_US')
+        self.locale = config.get('Locale', 'locale', fallback='en_US')
         self.timezone = config.get('Locale', 'timezone', fallback='UTC')
 
-        if not args: return
+        if not args:
+            return
 
         if args.verbose is not None:
             self.verbose = args.verbose
@@ -124,7 +128,8 @@ class aabchecker:
 
             if self.verbose:
                 files_list = pprint.pformat(files)
-                logger.info(str(num_files) + ' files found for ' + details['docid'] + ':\n' + files_list)
+                logger.info(str(num_files) + ' files found for ' + details['docid'] + ':\n'
+                            + files_list)
 
             return num_files > 1
         except RequestError as request_error:
@@ -136,7 +141,8 @@ class aabchecker:
         Connect aabc to the Google Play API. Credentials might be stored into
         the keyring if the keyring package is installed.
         '''
-        self.gpapi = GooglePlayAPI(locale=self.locale, timezone=self.timezone, device_codename=self.device_codename)
+        self.gpapi = GooglePlayAPI(locale=self.locale, timezone=self.timezone,
+                                   device_codename=self.device_codename)
         ok, err = self.connect_credentials()
         if ok:
             self.token = self.gpapi.authSubToken
@@ -163,11 +169,15 @@ class aabchecker:
             return False, ERRORS.CANNOT_LOGIN_GPLAY
         return True, None
 
+
 def main():
-    parser = argparse.ArgumentParser(description='A tool for checking if apps on the Google Play Store use Android App Bundles')
+    parser = argparse.ArgumentParser(description='A tool for checking if apps on the Google Play \
+                                     Store use Android App Bundles')
     parser.add_argument('apps', nargs='*', help='Apps to check if using Android App Bundles')
-    parser.add_argument('-C', '--config', help='Use a different config file than gplaycli.conf', metavar='CONF_FILE', nargs=1)
-    parser.add_argument('-dc', '--device-codename', help='The device codename to fake', choices=GooglePlayAPI.getDevicesCodenames(), metavar='DEVICE_CODENAME')
+    parser.add_argument('-C', '--config', help='Use a different config file than gplaycli.conf',
+                        metavar='CONF_FILE', nargs=1)
+    parser.add_argument('-dc', '--device-codename', help='The device codename to fake',
+                        choices=GooglePlayAPI.getDevicesCodenames(), metavar='DEVICE_CODENAME')
     parser.add_argument('-v', '--verbose', help='Be verbose', action='store_true')
     parser.add_argument('-V', '--version', help='Print version and exit', action='store_true')
 

@@ -1,4 +1,4 @@
-from aabc.aabc import *
+from aabc.aabc import main
 
 if __name__ == '__main__':
     main()
