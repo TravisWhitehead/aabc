@@ -31,8 +31,18 @@ class CSVReporter:
         report_file = open(report_path, 'w')
         self.writer = csv.writer(report_file)
 
-    def report_app(self, appid, uses_aab):
+    def write(self, data):
+        '''Write AAB usage data to report file in CSV format.
+
+        Iterate over data and write a row to report file for each entry where
+        the first colun is the Android app ID and the second column is 1 or 0
+        depending on whether the app uses Android App Bundles.
+
+        Args:
+            data (list): list of 2-tuples containing Android app IDs and
+                boolean indicating whether AAB is used by the app.
         '''
-        Stores app ID and whether it uses_aab in the report file.
-        '''
-        self.writer.writerow([appid, 1 if uses_aab else 0])
+        # Convert booleans to 1s and  0s
+        data = map(lambda pair: (pair[0], 1 if pair[1] else 0), data)
+
+        self.writer.writerows(data)

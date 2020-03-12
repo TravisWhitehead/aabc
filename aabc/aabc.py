@@ -32,7 +32,7 @@ import os
 import pprint
 import sys
 
-from gpapi.googleplay import GooglePlayAPI, LoginError, RequestError
+from gpapi.googleplay import GooglePlayAPI, LoginError
 from pkg_resources import get_distribution, DistributionNotFound
 
 from . import hooks
@@ -83,6 +83,7 @@ class aabchecker:
                 logger.warn('No configuration files found at %s, using default values')
 
         self.gpapi = None
+        self.reporter = None
 
         config = configparser.ConfigParser()
         if config_file:
@@ -116,29 +117,37 @@ class aabchecker:
 
     # TODO: Support multiple apps to check with BulkDetails
     @hooks.connected
-    def check_aab(self, app):
-        '''
-        Return whether app uses Android App Bundles.
+    def check_aab(self, apps):
+        '''Check whether list of apps use Android App Bundles.
 
-        Queries Google Play Store for details about app and checks the file
-        list; reports that Android App Bundles are used when more than one
-        file is listed.
+        Queries Google Play Store for each app's number of files and
+        interprets multiple files as Android App Bundle usage. When reporting
+        is enabled results are written to the configured report.
+
+        Args:
+            apps (list): list of Android app IDs to check
         '''
 
-        try:
-            details = self.gpapi.details(app)
-            files = details['details']['appDetails']['file']
+        details = self.gpapi.bulkDetails(apps)
+
+        # A list of 2-tuples holding app ID and AAB usage boolean
+        results = []
+
+        for app in details:
+            # TODO: Check for None / invalid app
+
+            files = app['details']['appDetails']['file']
             num_files = len(files)
+
+            results.append((app['docid'], num_files > 1))
 
             if self.verbose:
                 files_list = pprint.pformat(files)
-                logger.info(str(num_files) + ' files found for ' + details['docid'] + ':\n'
+                logger.info(str(num_files) + ' files found for ' + app['docid'] + ':\n'
                             + files_list)
 
-            return num_files > 1
-        except RequestError as request_error:
-            logger.error('Failed to get details for app.')
-            logger.error(request_error)
+        if self.reporter is not None:
+            self.reporter.write(results)
 
     def connect(self):
         '''
@@ -197,5 +206,4 @@ def main():
         return 1
 
     checker = aabchecker(args, args.config)
-
-    checker.reporter.report_app(args.apps[0], checker.check_aab(args.apps[0]))
+    checker.check_aab(args.apps)
