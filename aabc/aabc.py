@@ -35,8 +35,9 @@ import sys
 from gpapi.googleplay import GooglePlayAPI, LoginError
 from pkg_resources import get_distribution, DistributionNotFound
 
-from . import hooks
-from .reporters.csv import CSVReporter
+from aabc import hooks
+from aabc.helpers import *
+from aabc.reporters.csv import CSVReporter
 
 try:
     import keyring
@@ -115,7 +116,6 @@ class aabchecker:
         if args.device_codename is not None:
             self.device_codename = args.device_codename
 
-    # TODO: Support multiple apps to check with BulkDetails
     @hooks.connected
     def check_aab(self, apps):
         '''Check whether list of apps use Android App Bundles.
@@ -127,27 +127,38 @@ class aabchecker:
         Args:
             apps (list): list of Android app IDs to check
         '''
-
-        details = self.gpapi.bulkDetails(apps)
-
+        # List of apps that gpapi failed to find details for
+        apps_not_found = []
         # A list of 2-tuples holding app ID and AAB usage boolean
+        # (list of tuples is convenient for CSV writer)
         results = []
 
-        for app in details:
-            # TODO: Check for None / invalid app
+        # Query Google Play store for details on apps
+        app_details = self.gpapi.bulkDetails(apps)
 
-            files = app['details']['appDetails']['file']
+        # Reduce app_details to dictionary of app IDs to their file lists
+        app_details = zip(apps, app_details)
+        app_files = dict(map(lambda app: (app[0], get_files_from_details(app[1])), app_details))
+
+        # Check file counts for apps to determine if they use AAB
+        for app, files in app_files.items():
+            if files is None:
+                logger.info('Failed to get query ' + app + ' on Google Play. Skipping check.')
+                apps_not_found.append(app)
+                continue
+
             num_files = len(files)
-
-            results.append((app['docid'], num_files > 1))
+            results.append((app, num_files > 1))
 
             if self.verbose:
                 files_list = pprint.pformat(files)
-                logger.info(str(num_files) + ' files found for ' + app['docid'] + ':\n'
+                logger.info(str(num_files) + ' files found for ' + app + ':\n'
                             + files_list)
 
         if self.reporter is not None:
             self.reporter.write(results)
+
+        # TODO: Log summary of results.
 
     def connect(self):
         '''
