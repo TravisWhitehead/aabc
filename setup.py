@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="aabc",
-    version="0.1.2.post1",
+    version="1.0.0",
     author="Travis Whitehead",
     author_email="TravisWhitehead@protonmail.com",
-    description="Tool that uses adb to check if apps on a device are built Android App Bundles",
+    description="Tool that queries Google Play Store to check if apps on a device use Android App Bundles",
     entry_points={
         'console_scripts': [
             'aabc = aabc.aabc:main'

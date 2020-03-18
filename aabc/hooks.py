@@ -1,10 +1,7 @@
-aabc
-Copyleft (C) 2020 TravisWhitehead
-
-aabc heavily uses code from gplaycli https://github.com/matlink/gplaycli
+'''
 Copyleft (C) 2015 Matlink
 
-gplaycli is hardly based on GooglePlayDownloader https://framagit.org/tuxicoman/googleplaydownloader
+Hardly based on GooglePlayDownloader https://framagit.org/tuxicoman/googleplaydownloader
 Copyright (C) 2013 Tuxicoman
 
 This program is free software: you can redistribute it and/or modify
@@ -19,3 +16,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+'''
+def connected(function):
+    """
+    Decorator that checks the gpapi status before doing any request
+    """
+    def check_connection(self, *args, **kwargs):
+        if self.gpapi is None or self.gpapi.authSubToken is None:
+            ok, err = self.connect()
+            if not ok:
+                exit(err)
+        return function(self, *args, **kwargs)
+    return check_connection
