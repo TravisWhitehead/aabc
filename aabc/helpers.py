@@ -28,10 +28,25 @@ def get_files_from_details(details):
         details (dict): details dictionary produced by GooglePlayAPI.details()
             or GooglePlayAPI.bulkDetails()
 
-    Return:
+    Returns:
         list of files from the details dictionary
     '''
     if details is None:
         return None
     else:
         return details['details']['appDetails']['file']
+
+def get_apps_from_input_file(input_file):
+    '''Get list of app IDs from input file listing one app ID per line.
+
+    Args:
+        input_file (str): path to file containing one app ID per line
+
+    Returns:
+        list of app IDs read from input_file or an empty list if input_file is None
+    '''
+    if input_file is not None:
+        with open(input_file) as f:
+            apps = f.read().splitlines()
+            return apps
+    return []

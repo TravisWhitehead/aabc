@@ -198,10 +198,12 @@ def main():
     parser = argparse.ArgumentParser(description='A tool for checking if apps on the Google Play \
                                      Store use Android App Bundles')
     parser.add_argument('apps', nargs='*', help='Apps to check if using Android App Bundles')
-    parser.add_argument('-C', '--config', help='Use a different config file than gplaycli.conf',
+    parser.add_argument('-c', '--config', help='Use a different config file than gplaycli.conf',
                         metavar='CONF_FILE', nargs=1)
     parser.add_argument('-dc', '--device-codename', help='The device codename to fake',
                         choices=GooglePlayAPI.getDevicesCodenames(), metavar='DEVICE_CODENAME')
+    parser.add_argument('-i', '--input-file', help='File containing a list of app IDs to \
+                        check if using Android App Bundles')
     parser.add_argument('-r', '--report-file', help='The file to write the report to')
     parser.add_argument('-v', '--verbose', help='Be verbose', action='store_true')
     parser.add_argument('-V', '--version', help='Print version and exit', action='store_true')
@@ -210,11 +212,20 @@ def main():
 
     if args.version:
         print(__version__)
-        return
+        exit(0)
 
-    if len(args.apps) == 0:
-        logger.error('Must specify at least one app to check.')
-        return 1
+    # Combine app IDs from positional args and input file into one list
+    apps = args.apps
+    if args.input_file:
+        apps += get_apps_from_input_file(args.input_file)
+    # Remove duplicates
+    apps = set(apps)
+
+    # Ensure there is at least one app specified to check
+    if len(apps) == 0:
+        logger.error('Must specify at least one app to check using positional arguments or --input-file.\n')
+        parser.print_help(sys.stderr)
+        exit(1)
 
     checker = aabchecker(args, args.config)
-    checker.check_aab(args.apps)
+    checker.check_aab(apps)
